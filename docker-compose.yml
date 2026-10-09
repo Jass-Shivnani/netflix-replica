@@ -40,8 +40,8 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     volumes:
-      - media_data:/var/media
-      - db_data:/var/lib/sqlite
+      - ./media:/var/media
+      - ./data:/var/lib/sqlite
     depends_on:
       - redis
     networks:
@@ -64,8 +64,8 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     volumes:
-      - media_data:/var/media
-      - db_data:/var/lib/sqlite
+      - ./media:/var/media
+      - ./data:/var/lib/sqlite
     depends_on:
       - redis
     networks:
@@ -84,7 +84,7 @@ services:
       - PORT=8080
       - HLS_DIR=/var/media/hls
     volumes:
-      - media_data:/var/media:ro
+      - ./media:/var/media:ro
     networks:
       stream-net:
         ipv4_address: 172.20.0.21
@@ -101,7 +101,7 @@ services:
       - PORT=8080
       - HLS_DIR=/var/media/hls
     volumes:
-      - media_data:/var/media:ro
+      - ./media:/var/media:ro
     networks:
       stream-net:
         ipv4_address: 172.20.0.22
@@ -118,7 +118,7 @@ services:
       - PORT=8080
       - HLS_DIR=/var/media/hls
     volumes:
-      - media_data:/var/media:ro
+      - ./media:/var/media:ro
     networks:
       stream-net:
         ipv4_address: 172.20.0.23
@@ -135,8 +135,8 @@ services:
       - HLS_DIR=/var/media/hls
       - DATA_DIR=/var/lib/sqlite
     volumes:
-      - media_data:/var/media:rw
-      - db_data:/var/lib/sqlite:rw
+      - ./media:/var/media:rw
+      - ./data:/var/lib/sqlite:rw
     networks:
       stream-net:
         ipv4_address: 172.20.0.30
@@ -161,9 +161,5 @@ networks:
         - subnet: 172.20.0.0/16
 
 volumes:
-  media_data:
-    driver: local
-  db_data:
-    driver: local
   cache_data:
     driver: local
