@@ -19,7 +19,16 @@ class BasicDummyMediaLinkProviderApi : MediaLinkProviderApi {
     ) {
         val movieId = media.id
 
-        // 1. Primary NGINX Layer 7 Load Balancer (Android Emulator)
+        // 1. Public Cloudflare HTTPS Tunnel (Worldwide / College / Remote)
+        onLinkFound(
+            Stream(
+                url = "https://mountains-license-times-barnes.trycloudflare.com/stream/$movieId/playlist.m3u8",
+                name = "Public Cloudflare HTTPS Tunnel (Remote / College)",
+                description = "Secure global HTTPS connection to home streaming cluster",
+            )
+        )
+
+        // 2. Primary NGINX Layer 7 Load Balancer (Android Emulator)
         onLinkFound(
             Stream(
                 url = "http://10.0.2.2/stream/$movieId/playlist.m3u8",
