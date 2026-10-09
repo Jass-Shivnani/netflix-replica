@@ -1,0 +1,13 @@
+{
+  "name": "streaming-service",
+  "version": "1.0.0",
+  "description": "High-Performance HLS Chunk & Manifest Streaming Service with Byte-Range & Least-Conn Metrics",
+  "main": "streamer.js",
+  "scripts": {
+    "start": "node streamer.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "cors": "^2.8.5"
+  }
+}

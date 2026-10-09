@@ -1,0 +1,169 @@
+version: '3.8'
+
+services:
+  # NGINX Layer 7 Reverse Proxy & Load Balancer
+  nginx-lb:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    container_name: nginx-lb
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./public:/usr/share/nginx/html:ro
+    depends_on:
+      - api-service-1
+      - api-service-2
+      - stream-service-1
+      - stream-service-2
+      - stream-service-3
+    networks:
+      stream-net:
+        ipv4_address: 172.20.0.2
+
+  # Web / API Gateway - Replica 1
+  api-service-1:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: api-service-1
+    restart: always
+    environment:
+      - INSTANCE_ID=api-service-1
+      - PORT=5000
+      - RAW_DIR=/var/media/raw
+      - HLS_DIR=/var/media/hls
+      - DATA_DIR=/var/lib/sqlite
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - media_data:/var/media
+      - db_data:/var/lib/sqlite
+    depends_on:
+      - redis
+    networks:
+      stream-net:
+        ipv4_address: 172.20.0.10
+
+  # Web / API Gateway - Replica 2
+  api-service-2:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: api-service-2
+    restart: always
+    environment:
+      - INSTANCE_ID=api-service-2
+      - PORT=5000
+      - RAW_DIR=/var/media/raw
+      - HLS_DIR=/var/media/hls
+      - DATA_DIR=/var/lib/sqlite
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - media_data:/var/media
+      - db_data:/var/lib/sqlite
+    depends_on:
+      - redis
+    networks:
+      stream-net:
+        ipv4_address: 172.20.0.11
+
+  # HLS Streaming Service - Replica 1 (Read-Only Media Volume)
+  stream-service-1:
+    build:
+      context: ./services/streaming-service
+      dockerfile: Dockerfile
+    container_name: stream-service-1
+    restart: always
+    environment:
+      - INSTANCE_ID=stream-service-1
+      - PORT=8080
+      - HLS_DIR=/var/media/hls
+    volumes:
+      - media_data:/var/media:ro
+    networks:
+      stream-net:
+        ipv4_address: 172.20.0.21
+
+  # HLS Streaming Service - Replica 2 (Read-Only Media Volume)
+  stream-service-2:
+    build:
+      context: ./services/streaming-service
+      dockerfile: Dockerfile
+    container_name: stream-service-2
+    restart: always
+    environment:
+      - INSTANCE_ID=stream-service-2
+      - PORT=8080
+      - HLS_DIR=/var/media/hls
+    volumes:
+      - media_data:/var/media:ro
+    networks:
+      stream-net:
+        ipv4_address: 172.20.0.22
+
+  # HLS Streaming Service - Replica 3 (Read-Only Media Volume)
+  stream-service-3:
+    build:
+      context: ./services/streaming-service
+      dockerfile: Dockerfile
+    container_name: stream-service-3
+    restart: always
+    environment:
+      - INSTANCE_ID=stream-service-3
+      - PORT=8080
+      - HLS_DIR=/var/media/hls
+    volumes:
+      - media_data:/var/media:ro
+    networks:
+      stream-net:
+        ipv4_address: 172.20.0.23
+
+  # Asynchronous FFmpeg Transcoder Worker (Read-Write Media Volume)
+  transcoder-worker:
+    build:
+      context: ./services/transcoder
+      dockerfile: Dockerfile
+    container_name: transcoder-worker
+    restart: always
+    environment:
+      - RAW_DIR=/var/media/raw
+      - HLS_DIR=/var/media/hls
+      - DATA_DIR=/var/lib/sqlite
+    volumes:
+      - media_data:/var/media:rw
+      - db_data:/var/lib/sqlite:rw
+    networks:
+      stream-net:
+        ipv4_address: 172.20.0.30
+
+  # Redis 7.0 In-Memory Session & Catalog Cache
+  redis:
+    image: redis:7.0-alpine
+    container_name: stream-redis
+    restart: always
+    volumes:
+      - cache_data:/data
+    networks:
+      stream-net:
+        ipv4_address: 172.20.0.40
+
+networks:
+  stream-net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  media_data:
+    driver: local
+  db_data:
+    driver: local
+  cache_data:
+    driver: local

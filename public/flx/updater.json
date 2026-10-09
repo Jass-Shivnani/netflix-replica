@@ -1,0 +1,24 @@
+[
+  {
+    "id": "cc251f836bb9cbf",
+    "name": "VESIT Netflix Replica",
+    "repositoryUrl": "http://10.0.2.2/flx",
+    "buildUrl": "http://10.0.2.2/flx/NetflixReplica.flx",
+    "versionName": "1.0.0",
+    "versionCode": 20000,
+    "authors": [
+      {
+        "name": "VESIT ACC Team",
+        "image": "https://assets.nflxext.com/us/ffe/siteui/common/icons/nficon2016.png",
+        "socialLink": "https://github.com/Jass-Shivnani"
+      }
+    ],
+    "changelog": "## 1.0.0\n- Horizontally scaled HLS video streaming\n- NGINX Layer 7 Least-Connections Load Balancing\n- Independent Replica Streaming (8081, 8082, 8083)",
+    "language": "Multiple",
+    "providerType": "Movies",
+    "status": "Working",
+    "description": "Native ABR Player provider streaming from horizontally-scaled HLS clusters via NGINX Layer 7 Load Balancer.",
+    "iconUrl": "https://assets.nflxext.com/us/ffe/siteui/common/icons/nficon2016.png",
+    "adult": false
+  }
+]

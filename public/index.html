@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NETFLIX | ACC Cloud Stream - Distributed HLS Platform</title>
+  <meta name="description" content="Containerized, Horizontally Scalable Video Streaming Platform with NGINX Layer 7 Load Balancing, FFmpeg Transcoder, and HLS Adaptive Delivery.">
+
+  <!-- Google Fonts: Bebas Neue for Netflix Brand & Inter for UI -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- HLS.js Library for HTTP Live Streaming playback -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="navbar" id="navbar">
+    <div class="nav-left">
+      <div class="brand-logo" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
+        <span class="logo-text">NETFLIX</span>
+        <span class="brand-badge">ACC STREAM</span>
+      </div>
+      <ul class="nav-links">
+        <li><a class="nav-link active" href="#home">Home</a></li>
+        <li><a class="nav-link" href="#catalog">Catalog</a></li>
+        <li><a class="nav-link" onclick="openTopologyModal()">Topology & Nodes</a></li>
+        <li><a class="nav-link" onclick="openTopologyModal(true)">Chaos Lab</a></li>
+        <li><a class="nav-link" onclick="openUploadModal()">Creator Portal</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-right">
+      <!-- Live Cluster Status Pill -->
+      <div class="cluster-pill" id="nav-cluster-pill" onclick="openTopologyModal()" title="Click to open Cluster Monitor">
+        <div class="status-dot"></div>
+        <span id="nav-cluster-text">5/5 Nodes Active • Least-Conn</span>
+      </div>
+
+      <button class="btn-nav-action" onclick="openUploadModal()">
+        <span>+ Upload Video</span>
+      </button>
+
+      <div class="profile-avatar" title="Jass Shivnani (Roll 50) - VESIT D7A" onclick="openCreditsModal()">
+        <span>JS</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Billboard Banner -->
+  <section class="hero" id="hero-banner" style="background-image: url('/assets/posters/cyberpunk.jpg');">
+    <div class="hero-vignette"></div>
+    <div class="hero-content">
+      <div class="hero-badge-row">
+        <span class="tag-badge accent">VESIT ORIGINAL</span>
+        <span class="tag-badge">NGINX LEAST-CONN</span>
+        <span class="tag-badge">HLS 6S CHUNKS</span>
+      </div>
+      <h1 class="hero-title" id="hero-title">CYBERPUNK 2099: NEO-VERIDIA</h1>
+      <div class="hero-meta">
+        <span class="match" id="hero-match">98% Match</span>
+        <span class="rating-box" id="hero-rating">TV-MA</span>
+        <span id="hero-duration">0:30</span>
+        <span class="tag-badge" id="hero-res">1080p Full HD</span>
+        <span class="tag-badge" id="hero-audio">Spatial 5.1</span>
+      </div>
+      <p class="hero-desc" id="hero-desc">
+        In the high-density megacity of Neo-Veridia, rogue neural algorithms infiltrate the distributed cloud mainframe. A hacker-detective must bypass load-balanced firewalls before total singularity.
+      </p>
+      <div class="hero-actions">
+        <button class="btn-play" id="btn-hero-play" onclick="playHeroMovie()">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          Play Stream
+        </button>
+        <button class="btn-info" onclick="openTopologyModal()">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+          Inspect Architecture
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Catalog Content Rows -->
+  <main class="main-content" id="catalog">
+    
+    <!-- Row 1: Featured Originals -->
+    <section class="catalog-row">
+      <div class="row-header">
+        <h2 class="row-title">🔥 Trending on Stream-Net Cluster</h2>
+        <span class="row-subtitle">Multi-Replica Byte-Range Delivery</span>
+      </div>
+      <div class="cards-container" id="row-trending">
+        <!-- Injected via JavaScript -->
+      </div>
+    </section>
+
+    <!-- Row 2: Action & Sci-Fi -->
+    <section class="catalog-row">
+      <div class="row-header">
+        <h2 class="row-title">🚀 Sci-Fi, Cyberpunk & Tech Thrillers</h2>
+        <span class="row-subtitle">6s HLS Segmentation (.m3u8 & .ts)</span>
+      </div>
+      <div class="cards-container" id="row-scifi">
+        <!-- Injected via JavaScript -->
+      </div>
+    </section>
+
+    <!-- Row 3: Recently Transcoded & Community -->
+    <section class="catalog-row">
+      <div class="row-header">
+        <h2 class="row-title">⚡ Asynchronous FFmpeg Worker Ingestion</h2>
+        <span class="row-subtitle">Watched & Segmented from /var/media/raw</span>
+      </div>
+      <div class="cards-container" id="row-recent">
+        <!-- Injected via JavaScript -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer with Academic & Group Details -->
+  <footer class="footer">
+    <div class="footer-top">
+      <div>
+        <h3 style="color: #fff; margin-bottom: 6px;">Dockerized Video Streaming Platform</h3>
+        <p>Advanced Cloud Computing & Container Technologies Laboratory (D7A • Batch 2, Group 5)</p>
+        <p style="margin-top: 4px; color: #888;">Vivekanand Education Society's Institute of Technology (VESIT), Chembur</p>
+      </div>
+      <div>
+        <h4 style="color: #fff; margin-bottom: 8px;">Project Team</h4>
+        <ul class="team-list">
+          <li class="team-item"><strong>Navya Rangwani</strong> (Roll No. 43)</li>
+          <li class="team-item"><strong>Jass Shivnani</strong> (Roll No. 50)</li>
+          <li class="team-item"><strong>Khushi Sadhuramani</strong> (Roll No. 44)</li>
+        </ul>
+      </div>
+    </div>
+    <div style="font-size: 12px; color: #666; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 16px;">
+      <span>© 2026 VESIT Department of Information Technology. Built with Docker, NGINX Layer 7, Express, FFmpeg & Redis.</span>
+      <span style="color: var(--accent-green);">Cluster Status: Operational (stream-net 172.20.0.0/16)</span>
+    </div>
+  </footer>
+
+  <!-- Custom Video Player Modal -->
+  <div class="player-modal" id="player-modal">
+    <div class="video-wrapper" id="video-wrapper">
+      <video id="video-element" playsinline></video>
+
+      <!-- Player Top Bar -->
+      <div class="player-top-bar">
+        <div class="player-title-info">
+          <button class="btn-close-player" onclick="closePlayer()" title="Back to Browse">✕</button>
+          <div>
+            <h3 id="player-video-title" style="font-size: 18px; font-weight: 700;">Playing Video</h3>
+            <span id="player-video-meta" style="font-size: 12px; color: #aaa;">HLS ABR Stream • 6s Segments</span>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px;">
+          <button class="btn-nav-action" style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);" onclick="toggleStatsHud()" title="Toggle Stats for Nerds">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            <span>Telemetry HUD</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats for Nerds / Cloud Telemetry HUD -->
+      <div class="stats-hud" id="stats-hud">
+        <div class="hud-header">
+          <span>⚡ CLOUD TELEMETRY (STREAM-NET)</span>
+          <span style="cursor: pointer;" onclick="toggleStatsHud()">✕</span>
+        </div>
+        <div class="hud-stat-row">
+          <span>Active Replica:</span>
+          <span class="hud-stat-value highlight" id="hud-replica">stream-service-1</span>
+        </div>
+        <div class="hud-stat-row">
+          <span>LB Algorithm:</span>
+          <span class="hud-stat-value" id="hud-algorithm">Least Connections (least_conn)</span>
+        </div>
+        <div class="hud-stat-row">
+          <span>Current Chunk:</span>
+          <span class="hud-stat-value" id="hud-chunk">media_000.ts</span>
+        </div>
+        <div class="hud-stat-row">
+          <span>Chunk Size:</span>
+          <span class="hud-stat-value" id="hud-chunk-size">241.9 KB</span>
+        </div>
+        <div class="hud-stat-row">
+          <span>Chunk Latency:</span>
+          <span class="hud-stat-value highlight" id="hud-chunk-latency">12 ms</span>
+        </div>
+        <div class="hud-stat-row">
+          <span>Buffer Health:</span>
+          <span class="hud-stat-value" id="hud-buffer">18.0 s</span>
+        </div>
+        <div class="hud-stat-row">
+          <span>Resolution:</span>
+          <span class="hud-stat-value" id="hud-resolution">1280x720 (H.264/AAC)</span>
+        </div>
+        <div class="hud-stat-row">
+          <span>Total Chunks Loaded:</span>
+          <span class="hud-stat-value" id="hud-chunks-loaded">0</span>
+        </div>
+      </div>
+
+      <!-- Controls Overlay -->
+      <div class="player-controls" id="player-controls">
+        <div class="progress-bar-container" id="player-progress-bar" onclick="seekVideo(event)">
+          <div class="progress-buffer" id="player-progress-buffer"></div>
+          <div class="progress-filled" id="player-progress-filled"></div>
+        </div>
+
+        <div class="controls-row">
+          <div class="controls-left">
+            <button class="ctrl-btn" id="btn-play-pause" onclick="togglePlayPause()">
+              <svg id="icon-play" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <svg id="icon-pause" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" style="display: none;"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+            </button>
+            <span class="time-display" id="time-display">00:00 / 00:30</span>
+            <button class="ctrl-btn" onclick="toggleMute()">
+              <svg id="icon-volume" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+            </button>
+          </div>
+
+          <div class="controls-right">
+            <span class="cluster-pill" style="font-size: 11px; padding: 4px 10px;" id="player-replica-badge">
+              Replica: stream-service-1
+            </span>
+            <button class="ctrl-btn" onclick="toggleFullscreen()">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Topology & Chaos Lab Modal -->
+  <div class="modal-overlay" id="topology-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--netflix-red)" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+          Cloud Architecture & Load Balancer Topology
+        </h2>
+        <button class="modal-close" onclick="closeTopologyModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- Architecture Diagram & Blueprint View -->
+        <div style="background: rgba(0,0,0,0.5); border: 1px solid rgba(0, 229, 255, 0.3); border-radius: 12px; padding: 18px; text-align: center;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div style="text-align: left;">
+              <span class="tag-badge accent">SYSTEM SPECIFICATION BLUEPRINT</span>
+              <h3 style="font-size: 16px; margin-top: 4px; font-weight: 800; color: var(--accent-cyan);">Dockerized Video Streaming Platform Architecture</h3>
+              <p style="font-size: 12px; color: #aaa;">Reference: Advanced Cloud Computing / Container Technologies Laboratory (VESIT D7A)</p>
+            </div>
+            <a href="/assets/architecture_diagram.png" target="_blank" class="btn-nav-action" style="font-size: 11px; padding: 6px 12px; text-decoration: none;">
+              Open Full Blueprint ↗
+            </a>
+          </div>
+          <div style="width: 100%; max-height: 440px; overflow: hidden; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: #080d14;">
+            <img src="/assets/architecture_diagram.png" alt="Architecture Diagram" style="width: 100%; height: auto; max-height: 440px; object-fit: contain;">
+          </div>
+        </div>
+
+        <!-- Benchmark Runner Widget -->
+        <div class="benchmark-box" id="chaos-section">
+          <div class="bench-header">
+            <div>
+              <h3 style="font-size: 16px; font-weight: 800;">⚡ Live Failover & Load Distribution Benchmark</h3>
+              <p style="font-size: 12px; color: #bbb;">Validates Section 5 results: 100 requests, latency reduction & &lt;1.2s container failover.</p>
+            </div>
+            <button class="btn-nav-action" id="btn-run-bench" onclick="runClientBenchmark()">
+              Run 100-Req Benchmark
+            </button>
+          </div>
+          <div class="bench-results-grid">
+            <div class="bench-stat-card">
+              <div class="bench-stat-number" id="bench-avg-lat">-- ms</div>
+              <div class="bench-stat-lbl">Average Latency</div>
+            </div>
+            <div class="bench-stat-card">
+              <div class="bench-stat-number" id="bench-throughput">-- req/s</div>
+              <div class="bench-stat-lbl">Max Throughput</div>
+            </div>
+            <div class="bench-stat-card">
+              <div class="bench-stat-number" id="bench-failed">0.0%</div>
+              <div class="bench-stat-lbl">Failed Requests</div>
+            </div>
+            <div class="bench-stat-card">
+              <div class="bench-stat-number" id="bench-failover">&lt; 1.2 s</div>
+              <div class="bench-stat-lbl">Failover Downtime</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Real-Time Animated Packet Flow Canvas Visualizer -->
+        <div class="canvas-visualizer-container">
+          <div class="canvas-toolbar">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span class="status-dot"></span>
+              <strong style="font-size: 13px; letter-spacing: 0.5px; color: var(--accent-cyan);">LIVE PACKET FLOW & REPLICA ROUTING</strong>
+              <span class="tag-badge accent" id="replica-count-badge">3 Replicas Active</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <div style="font-size: 11px; background: rgba(0, 230, 118, 0.1); border: 1px solid rgba(0, 230, 118, 0.3); padding: 4px 10px; border-radius: 20px; color: var(--accent-green);">
+                📱 Phone Demo URL: <a id="mobile-demo-url" href="http://192.168.1.34" target="_blank" style="color: #fff; font-weight: 700; text-decoration: underline;">http://192.168.1.34</a>
+              </div>
+              <div class="scaling-btn-group">
+                <button class="btn-scale" onclick="scaleReplicas('up')">
+                  <span>+ Scale Up Pod</span>
+                </button>
+                <button class="btn-scale down" onclick="scaleReplicas('down')">
+                  <span>- Scale Down</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <canvas id="topology-canvas"></canvas>
+        </div>
+
+        <!-- Live Packet Stream Terminal -->
+        <div>
+          <div style="font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; margin-bottom: 6px; display: flex; justify-content: space-between;">
+            <span>⚡ Real-Time Data Packet Dispatch Log (SSE)</span>
+            <span style="color: var(--accent-green);">Direct Ingress Monitoring</span>
+          </div>
+          <div class="packet-log-container" id="packet-log-stream">
+            <div class="packet-entry" style="color: #666;">Waiting for video playback or API requests to animate packets...</div>
+          </div>
+        </div>
+
+        <!-- Interactive Topology Diagram -->
+        <div class="topology-grid">
+          
+          <!-- Ingress Layer -->
+          <div class="topology-section">
+            <div class="section-label">
+              <span>Layer 7 Ingress (Port 80 / 443)</span>
+              <span style="color: var(--accent-green);">Active LB: Least Connections</span>
+            </div>
+            <div class="nodes-row">
+              <div class="cluster-node healthy">
+                <div class="node-title-row">
+                  <span class="node-name">nginx-lb</span>
+                  <span class="node-status-badge online">Online</span>
+                </div>
+                <div class="node-info-text">Subnet: 172.20.0.2 • Passive Health Checks (max_fails=3)</div>
+                <div style="font-size: 11px; color: #fff; font-weight: 600;" id="lb-requests-stat">Total Requests Handled: 0</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Upstream Streaming Cluster -->
+          <div class="topology-section">
+            <div class="section-label">
+              <span>Upstream Pool: stream_cluster (:8080)</span>
+              <span>Mounted: media_data:ro</span>
+            </div>
+            <div class="nodes-row" id="stream-nodes-container">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Upstream API Cluster -->
+          <div class="topology-section">
+            <div class="section-label">
+              <span>Upstream Pool: api_cluster (:5000)</span>
+              <span>Mounted: db_data:rw</span>
+            </div>
+            <div class="nodes-row" id="api-nodes-container">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Storage & Worker Layer -->
+          <div class="topology-section">
+            <div class="section-label">
+              <span>Data & Transcoding Layer</span>
+              <span>Docker Named Volumes</span>
+            </div>
+            <div class="nodes-row">
+              <div class="cluster-node healthy">
+                <div class="node-title-row">
+                  <span class="node-name">transcoder-worker</span>
+                  <span class="node-status-badge online">Daemon</span>
+                </div>
+                <div class="node-info-text">FFmpeg Asynchronous Worker • 6s .ts chunking</div>
+              </div>
+              <div class="cluster-node healthy">
+                <div class="node-title-row">
+                  <span class="node-name">redis (7.0-alpine)</span>
+                  <span class="node-status-badge online">Sub-ms</span>
+                </div>
+                <div class="node-info-text">Session Cache & Catalog Metadata Store</div>
+              </div>
+              <div class="cluster-node healthy">
+                <div class="node-title-row">
+                  <span class="node-name">media_data + db_data</span>
+                  <span class="node-status-badge online">Persistent</span>
+                </div>
+                <div class="node-info-text">/var/media (RW/RO) & /var/lib/sqlite</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Teacher Presentation CLI Reference -->
+          <div class="cli-cheatsheet">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <strong style="color: #fff; font-size: 13px;">🎓 Evaluator & Teacher Verification CLI Commands</strong>
+              <span class="tag-badge">Docker Compose V2</span>
+            </div>
+            <p style="font-size: 11px; color: #888; margin-bottom: 10px;">Run these in any terminal connected to the cluster to show live orchestration:</p>
+            <div class="cli-cmd-line">
+              <span>docker compose up -d --scale stream-service=4</span>
+              <span style="color: #888; font-size: 11px;"># Scale streaming replicas horizontally</span>
+            </div>
+            <div class="cli-cmd-line">
+              <span>docker stop stream-service-1</span>
+              <span style="color: #888; font-size: 11px;"># Trigger instant container failover</span>
+            </div>
+            <div class="cli-cmd-line">
+              <span>docker compose logs -f nginx-lb</span>
+              <span style="color: #888; font-size: 11px;"># Watch NGINX Least-Connections distribution</span>
+            </div>
+            <div class="cli-cmd-line">
+              <span>docker network inspect stream-net</span>
+              <span style="color: #888; font-size: 11px;"># Inspect 172.20.0.0/16 private subnet</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Creator / Admin Upload Modal -->
+  <div class="modal-overlay" id="upload-modal">
+    <div class="modal-card" style="max-width: 620px;">
+      <div class="modal-header">
+        <h2 class="modal-title">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          Creator Upload Portal
+        </h2>
+        <button class="modal-close" onclick="closeUploadModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <form id="upload-form" onsubmit="handleUploadSubmit(event)">
+          <div class="upload-dropzone" id="dropzone" onclick="document.getElementById('video-file-input').click()">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" style="margin-bottom: 12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            <h4 id="dropzone-text" style="font-size: 15px; margin-bottom: 4px;">Click or Drag & Drop MP4 Video</h4>
+            <p style="font-size: 12px; color: #888;">Ingests into /var/media/raw for FFmpeg segmentation</p>
+            <input type="file" id="video-file-input" accept="video/mp4,video/mkv,video/quicktime" style="display: none;" onchange="handleFileSelected(event)">
+          </div>
+
+          <div class="form-group" style="margin-top: 20px;">
+            <label>Title</label>
+            <input type="text" id="upload-title" class="form-control" placeholder="e.g. Matrix Reloaded" required>
+          </div>
+
+          <div class="form-group">
+            <label>Genre / Category</label>
+            <input type="text" id="upload-genre" class="form-control" placeholder="e.g. Sci-Fi / Action" required>
+          </div>
+
+          <div class="form-group">
+            <label>Synopsis / Description</label>
+            <textarea id="upload-desc" class="form-control" rows="3" placeholder="Brief storyline or technical overview..."></textarea>
+          </div>
+
+          <!-- Progress Bar during Transcoding -->
+          <div id="transcode-progress-box" style="display: none; background: rgba(0,0,0,0.4); padding: 14px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 8px;">
+              <span id="transcode-step-label">FFmpeg Transcoder Processing...</span>
+              <span id="transcode-pct-label">0%</span>
+            </div>
+            <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
+              <div id="transcode-bar" style="width: 0%; height: 100%; background: var(--netflix-red); transition: width 0.3s ease;"></div>
+            </div>
+            <div style="font-size: 11px; color: var(--accent-cyan); margin-top: 6px;" id="transcode-chunk-info">Generating 6-second .ts chunks...</div>
+          </div>
+
+          <button type="submit" class="btn-play" style="width: 100%; justify-content: center; background: var(--netflix-red); color: #fff;" id="btn-submit-upload">
+            Start Transcoding Pipeline
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Credits Modal -->
+  <div class="modal-overlay" id="credits-modal">
+    <div class="modal-card" style="max-width: 540px;">
+      <div class="modal-header">
+        <h2 class="modal-title">Project Credentials</h2>
+        <button class="modal-close" onclick="closeCreditsModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="text-align: center; margin-bottom: 16px;">
+          <h3 style="font-size: 20px; font-weight: 800; color: var(--netflix-red);">VESIT Department of IT</h3>
+          <p style="font-size: 13px; color: #aaa;">Advanced Cloud Computing Laboratory Mini-Project</p>
+          <div style="margin-top: 8px;" class="tag-badge accent">Class D7A • Batch 2, Group 5</div>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 18px;">
+          <h4 style="font-size: 14px; margin-bottom: 12px; color: #ddd;">Engineered By:</h4>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; font-size: 14px;">
+              <span>Navya Rangwani</span>
+              <span style="color: var(--accent-cyan); font-weight: 700;">Roll No. 43</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 14px;">
+              <span>Jass Shivnani</span>
+              <span style="color: var(--accent-cyan); font-weight: 700;">Roll No. 50</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 14px;">
+              <span>Khushi Sadhuramani</span>
+              <span style="color: var(--accent-cyan); font-weight: 700;">Roll No. 44</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Client Application Logic -->
+  <script src="/js/app.js"></script>
+  <script src="/js/player.js"></script>
+  <script src="/js/dashboard.js"></script>
+  <script src="/js/uploader.js"></script>
+</body>
+</html>

@@ -1,0 +1,159 @@
+{
+  "movies": [
+    {
+      "id": "cyberpunk-2099",
+      "title": "Cyberpunk 2099: Neo-Veridia",
+      "genre": "Sci-Fi / Cyberpunk",
+      "year": "2026",
+      "rating": "TV-MA",
+      "duration": "0:30",
+      "durationSeconds": 30,
+      "resolution": "1080p Full HD",
+      "audio": "Spatial 5.1 AAC",
+      "description": "In the high-density megacity of Neo-Veridia, rogue neural algorithms infiltrate the distributed cloud mainframe. A hacker-detective must bypass load-balanced firewalls before total singularity.",
+      "cast": "Kenji Sato, Elena Rostova, Marcus Vance",
+      "director": "Denis Villeneuve-Sim",
+      "matchRate": "98% Match",
+      "tags": [
+        "Mind-Bending",
+        "Cyberpunk",
+        "High-Octane",
+        "Adrenaline"
+      ],
+      "poster": "/assets/posters/cyberpunk.jpg",
+      "backdrop": "/assets/posters/cyberpunk.jpg",
+      "filter": "testsrc2=duration=30:size=1280x720:rate=30",
+      "audioFreq": 220,
+      "segmentCount": 4,
+      "streamUrl": "/stream/cyberpunk-2099/playlist.m3u8"
+    },
+    {
+      "id": "interstellar-odyssey",
+      "title": "Interstellar: Beyond The Event Horizon",
+      "genre": "Sci-Fi / Adventure",
+      "year": "2026",
+      "rating": "PG-13",
+      "duration": "0:36",
+      "durationSeconds": 36,
+      "resolution": "4K Ultra HD",
+      "audio": "Dolby Atmos 5.1",
+      "description": "A deep space reconnaissance expedition travels across cosmic rings and swirling sapphire nebulae to discover an ancient planetary beacon emitting quantum transmission pulses.",
+      "cast": "Dr. Joseph Cooper-Smith, Amanda Brand, TARS-9",
+      "director": "Christopher Nolan-Sim",
+      "matchRate": "99% Match",
+      "tags": [
+        "Cosmic",
+        "Awe-Inspiring",
+        "Space Exploration",
+        "Deep Drama"
+      ],
+      "poster": "/assets/posters/space_odyssey.jpg",
+      "backdrop": "/assets/posters/space_odyssey.jpg",
+      "filter": "mandelbrot=size=1280x720:rate=30:maxiter=120",
+      "audioFreq": 330,
+      "segmentCount": 5,
+      "streamUrl": "/stream/interstellar-odyssey/playlist.m3u8"
+    },
+    {
+      "id": "silicon-siege",
+      "title": "Silicon Siege: Zero-Downtime Protocol",
+      "genre": "Tech Thriller",
+      "year": "2026",
+      "rating": "TV-14",
+      "duration": "0:30",
+      "durationSeconds": 30,
+      "resolution": "1080p Full HD",
+      "audio": "5.1 Surround",
+      "description": "When an unprecedented DDoS vector attacks the continent-wide streaming backbone, an elite DevOps team initiates emergency Least-Conn rerouting to survive zero-downtime failover.",
+      "cast": "Navya Rangwani, Jass Shivnani, Khushi Sadhuramani",
+      "director": "Linus Torvalds-Sim",
+      "matchRate": "96% Match",
+      "tags": [
+        "DevOps Thriller",
+        "Tense",
+        "High-Stakes",
+        "VESIT Original"
+      ],
+      "poster": "/assets/posters/cyber_thriller.jpg",
+      "backdrop": "/assets/posters/cyber_thriller.jpg",
+      "filter": "gradients=size=1280x720:rate=30:duration=30:c0=0x0F2027:c1=0x203A43:c2=0x2C5364:speed=0.01",
+      "audioFreq": 260,
+      "segmentCount": 4,
+      "streamUrl": "/stream/silicon-siege/playlist.m3u8"
+    },
+    {
+      "id": "the-dockerfiles",
+      "title": "The Dockerfiles: Container Protocol",
+      "genre": "Documentary / ACC Lab",
+      "year": "2026",
+      "rating": "TV-G",
+      "duration": "0:24",
+      "durationSeconds": 24,
+      "resolution": "1080p Full HD",
+      "audio": "Stereo AAC",
+      "description": "The definitive architectural documentary chronicling the revolution from monolithic bare-metal streaming to microservice orchestration with Docker Compose, NGINX Layer 7 load balancing, and HLS byte-range streaming.",
+      "cast": "VESIT D7A Batch 2 Group 5 Engineering Unit",
+      "director": "VESIT IT Dept",
+      "matchRate": "100% Match",
+      "tags": [
+        "Educational",
+        "Cloud Native",
+        "VESIT D7A",
+        "Benchmark Leader"
+      ],
+      "poster": "/assets/posters/dockerfiles.jpg",
+      "backdrop": "/assets/posters/dockerfiles.jpg",
+      "filter": "smptebars=duration=24:size=1280x720:rate=30",
+      "audioFreq": 440,
+      "segmentCount": 3,
+      "streamUrl": "/stream/the-dockerfiles/playlist.m3u8"
+    },
+    {
+      "id": "tokyo-velocity",
+      "title": "Tokyo Velocity: Midnight Drift",
+      "genre": "Action / Adrenaline",
+      "year": "2026",
+      "rating": "TV-MA",
+      "duration": "0:30",
+      "durationSeconds": 30,
+      "resolution": "1080p Full HD",
+      "audio": "Dolby 5.1",
+      "description": "Under the neon lights of Shinjuku and Shibuya, modified high-output twin-turbo machines battle on rain-slicked asphalt while an underground telemetry stream broadcasts to millions across distributed nodes.",
+      "cast": "Ren Takahashi, Maya Chen, Dominic Torre-Sim",
+      "director": "Justin Lin-Sim",
+      "matchRate": "95% Match",
+      "tags": [
+        "High Adrenaline",
+        "Racing",
+        "Tokyo Nights",
+        "Action"
+      ],
+      "poster": "/assets/posters/tokyo_velocity.jpg",
+      "backdrop": "/assets/posters/tokyo_velocity.jpg",
+      "filter": "testsrc=duration=30:size=1280x720:rate=30",
+      "audioFreq": 390,
+      "segmentCount": 4,
+      "streamUrl": "/stream/tokyo-velocity/playlist.m3u8"
+    }
+  ],
+  "meta": {
+    "project": "Dockerized Video Streaming Platform with NGINX Load Balancing",
+    "institution": "VESIT - Vivekanand Education Society's Institute of Technology",
+    "class": "D7A - Batch 2, Group 5",
+    "team": [
+      {
+        "name": "Navya Rangwani",
+        "roll": 43
+      },
+      {
+        "name": "Jass Shivnani",
+        "roll": 50
+      },
+      {
+        "name": "Khushi Sadhuramani",
+        "roll": 44
+      }
+    ],
+    "updatedAt": "2026-09-17T07:13:00.948Z"
+  }
+}

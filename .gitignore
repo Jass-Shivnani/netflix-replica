@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+package-lock.json.bak
+
+# Android / Build artifacts
+*.apk
+*.aab
+.gradle/
+**/build/
+**/.kotlin/
+**/local.properties
+.idea/
+*.iml
+
+# Raw heavy media files (transcoded HLS streams are preserved in media/hls)
+media/raw/*
+!media/raw/.gitkeep
+
+# Environment & Logs
+.env
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS Files
+.DS_Store
+Thumbs.db

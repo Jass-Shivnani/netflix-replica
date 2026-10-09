@@ -1,0 +1,10 @@
+{
+  "name": "transcoder-worker",
+  "version": "1.0.0",
+  "description": "Asynchronous FFmpeg Transcoding Worker with 6s HLS Chunk Segmentation",
+  "main": "transcoder.js",
+  "scripts": {
+    "start": "node transcoder.js"
+  },
+  "dependencies": {}
+}

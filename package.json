@@ -1,0 +1,32 @@
+{
+  "name": "dockerized-video-streaming-platform",
+  "version": "1.0.0",
+  "description": "Dockerized Video Streaming Platform with NGINX Layer 7 Load Balancing - VESIT ACC Mini Project",
+  "main": "dev-runner.js",
+  "scripts": {
+    "start": "node dev-runner.js",
+    "dev": "node dev-runner.js",
+    "poc": "node test-poc.js",
+    "generate-samples": "node scripts/generate-catalog.js",
+    "test-load": "node test-load.js",
+    "build:provider": "powershell -Command \"cd flx-provider-builder; .\\gradlew.bat :BasicDummyProvider:make; Copy-Item providers\\BasicDummyProvider\\build\\BasicDummyProvider.flx ..\\public\\flx\\NetflixReplica.flx -Force\"",
+    "install:apk": "adb install -r flixclusive-release.apk"
+  },
+  "keywords": [
+    "docker",
+    "nginx",
+    "load-balancing",
+    "hls",
+    "ffmpeg",
+    "microservices",
+    "streaming",
+    "netflix-replica"
+  ],
+  "author": "Navya Rangwani (43), Jass Shivnani (50), Khushi Sadhuramani (44) - VESIT D7A",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1"
+  }
+}
