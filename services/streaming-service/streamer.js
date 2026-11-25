@@ -2,15 +2,17 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
-const INSTANCE_ID = process.env.INSTANCE_ID || 'stream-service-1';
+const INSTANCE_ID = process.env.INSTANCE_ID || ('stream-' + os.hostname().slice(0, 8));
 const HLS_DIR = process.env.HLS_DIR || path.join(__dirname, '..', '..', 'media', 'hls');
 
 let activeConnections = 0;
 let totalChunksServed = 0;
 let totalBytesTransferred = 0;
+let manualDown = false;
 const startTime = Date.now();
 
 app.use(cors({
@@ -33,17 +35,41 @@ app.use((req, res, next) => {
   res.on('finish', onFinished);
   res.on('close', onFinished);
 
+  if (manualDown && !req.path.startsWith('/internal/') && req.path !== '/health' && req.path !== '/stream/health') {
+    return res.status(503).json({ error: `${INSTANCE_ID} is offline (Chaos Simulation)` });
+  }
+
   next();
+});
+
+// Internal Chaos Engineering Toggle
+app.post('/internal/chaos-toggle', (req, res) => {
+  manualDown = !manualDown;
+  console.log(`[${INSTANCE_ID}] Chaos Toggle: manualDown = ${manualDown}`);
+  res.json({ instance: INSTANCE_ID, manualDown, healthy: !manualDown });
 });
 
 // Health Check Endpoint (Probed by NGINX Load Balancer upstream)
 app.get(['/health', '/stream/health'], (req, res) => {
+  if (manualDown) {
+    return res.status(503).json({
+      status: 'down',
+      manualDown: true,
+      service: 'streaming-service',
+      instance: INSTANCE_ID,
+      activeConnections,
+      totalRequests: totalChunksServed,
+      totalChunksServed
+    });
+  }
   res.json({
     status: 'healthy',
+    manualDown: false,
     service: 'streaming-service',
     instance: INSTANCE_ID,
     uptimeSeconds: Math.floor((Date.now() - startTime) / 1000),
     activeConnections,
+    totalRequests: totalChunksServed,
     totalChunksServed,
     totalBytesTransferredMB: (totalBytesTransferred / (1024 * 1024)).toFixed(2),
     timestamp: new Date().toISOString()
@@ -94,7 +120,10 @@ app.get(['/stream/:id/:segment', '/:id/:segment'], (req, res) => {
   const fileSize = stat.size;
   const range = req.headers.range;
 
-  res.setHeader('Content-Type', 'video/mp2t');
+  const contentType = safeSegment.endsWith('.jpg') || safeSegment.endsWith('.jpeg')
+    ? 'image/jpeg'
+    : 'video/mp2t';
+  res.setHeader('Content-Type', contentType);
   res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
   res.setHeader('X-Chunk-Name', safeSegment);
 

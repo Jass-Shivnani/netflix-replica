@@ -1,6 +1,46 @@
 let hlsInstance = null;
 let currentVideoId = null;
 let chunksLoadedCount = 0;
+let activeEdgeIndex = 0;
+let edgeFailoverInProgress = false;
+let failoverBannerTimer = null;
+
+// Multi-Laptop / Multi-Edge URL Discovery (?edges=http://ip1,http://ip2 or localStorage)
+function getConfiguredEdges() {
+  const params = new URLSearchParams(window.location.search);
+  const queryEdges = params.get('edges');
+  if (queryEdges) {
+    const parsed = queryEdges.split(',').map(s => s.trim().replace(/\/+$/, '')).filter(Boolean);
+    if (parsed.length > 0) {
+      localStorage.setItem('netflix_edge_regions', JSON.stringify(parsed));
+      return parsed;
+    }
+  }
+  try {
+    const saved = JSON.parse(localStorage.getItem('netflix_edge_regions') || '[]');
+    if (Array.isArray(saved) && saved.length > 0) {
+      return saved;
+    }
+  } catch (e) {}
+  return [window.location.origin];
+}
+
+function getActiveEdgeUrl() {
+  const edges = getConfiguredEdges();
+  return edges[activeEdgeIndex % edges.length] || window.location.origin;
+}
+
+function showFailoverBanner(msg, isWarning = false) {
+  const banner = document.getElementById('edge-failover-banner');
+  if (!banner) return;
+  banner.style.display = 'block';
+  banner.style.background = isWarning ? 'rgba(255, 171, 0, 0.95)' : 'rgba(0, 230, 118, 0.95)';
+  banner.innerText = msg;
+  clearTimeout(failoverBannerTimer);
+  failoverBannerTimer = setTimeout(() => {
+    banner.style.display = 'none';
+  }, 6000);
+}
 
 const videoElement = document.getElementById('video-element');
 const playerModal = document.getElementById('player-modal');
@@ -15,16 +55,28 @@ const iconPause = document.getElementById('icon-pause');
 // Launch Player with specified Video ID
 function playMovie(id) {
   currentVideoId = id;
+  activeEdgeIndex = 0;
   const movie = (catalogData.movies || []).find(m => m.id === id);
 
   document.getElementById('player-video-title').innerText = movie ? movie.title : 'HLS Adaptive Stream';
-  document.getElementById('player-video-meta').innerText = `${movie ? movie.genre : 'VOD'} • 6s Segments • NGINX Least-Conn`;
+  document.getElementById('player-video-meta').innerText = `${movie ? movie.genre : 'VOD'} • 6s Segments • Multi-Edge Ready`;
 
   playerModal.classList.add('active');
   document.body.style.overflow = 'hidden';
 
-  const streamUrl = `/stream/${id}/playlist.m3u8`;
-  initHlsPlayer(streamUrl);
+  const edgeBase = getActiveEdgeUrl();
+  const streamUrl = `${edgeBase}/stream/${id}/playlist.m3u8`;
+  updateEdgeHudLabel(edgeBase);
+  initHlsPlayer(streamUrl, 0);
+}
+
+function updateEdgeHudLabel(edgeBase) {
+  const edges = getConfiguredEdges();
+  const hostText = edgeBase.replace(/^https?:\/\//, '');
+  const hudEdge = document.getElementById('hud-edge-host');
+  if (hudEdge) {
+    hudEdge.innerText = `${hostText} (Edge ${activeEdgeIndex + 1}/${edges.length})`;
+  }
 }
 
 // Close Cinema Player
@@ -42,26 +94,57 @@ function closePlayer() {
   chunksLoadedCount = 0;
 }
 
-// Initialize HLS.js with telemetry monitoring
-function initHlsPlayer(streamUrl) {
+// Failover to Backup Laptop / Edge Region seamlessly at exact timestamp
+function triggerEdgeFailover(reason = 'Primary Edge Timeout') {
+  const edges = getConfiguredEdges();
+  if (edges.length <= 1) {
+    showFailoverBanner('Add a 2nd Laptop IP in Topology -> Mobile QR Connect to enable Multi-Laptop Failover!', true);
+    return false;
+  }
+  if (edgeFailoverInProgress || !currentVideoId) return false;
+  edgeFailoverInProgress = true;
+
+  const oldEdge = edges[activeEdgeIndex % edges.length];
+  activeEdgeIndex = (activeEdgeIndex + 1) % edges.length;
+  const newEdge = edges[activeEdgeIndex];
+  const resumeAt = Math.max(0, videoElement.currentTime || 0);
+
+  console.warn(`[Edge Failover] ${reason}: switching ${oldEdge} -> ${newEdge} @ ${resumeAt.toFixed(1)}s`);
+  updateEdgeHudLabel(newEdge);
+  showFailoverBanner(`⚡ FAILOVER (${reason}): ${oldEdge.replace(/^https?:\/\//, '')} → ${newEdge.replace(/^https?:\/\//, '')} @ ${formatTime(resumeAt)}`);
+
+  const newUrl = `${newEdge}/stream/${currentVideoId}/playlist.m3u8`;
+  initHlsPlayer(newUrl, resumeAt);
+
+  setTimeout(() => { edgeFailoverInProgress = false; }, 2000);
+  return true;
+}
+
+// Initialize HLS.js with telemetry & fast multi-laptop failover
+function initHlsPlayer(streamUrl, resumeTime = 0) {
   if (hlsInstance) {
     hlsInstance.destroy();
   }
 
-  chunksLoadedCount = 0;
-  document.getElementById('hud-chunks-loaded').innerText = '0';
+  if (resumeTime === 0) {
+    chunksLoadedCount = 0;
+    document.getElementById('hud-chunks-loaded').innerText = '0';
+  }
 
   if (Hls.isSupported()) {
     hlsInstance = new Hls({
       enableWorker: true,
       lowLatencyMode: false,
+      startPosition: resumeTime > 0 ? resumeTime : -1,
       maxBufferLength: 30,
       maxMaxBufferLength: 60,
+      manifestLoadingTimeOut: 3000,
+      manifestLoadingMaxRetry: 0,
+      fragLoadingTimeOut: 3500,
+      fragLoadingMaxRetry: 1,
       xhrSetup: (xhr, url) => {
-        // Intercept headers
         xhr.addEventListener('load', () => {
           const replica = xhr.getResponseHeader('x-served-by');
-          const alg = xhr.getResponseHeader('x-balancing-algorithm');
           if (replica) {
             updateTelemetryHudReplica(replica, url);
           }
@@ -73,7 +156,10 @@ function initHlsPlayer(streamUrl) {
     hlsInstance.attachMedia(videoElement);
 
     hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-      console.log('[HLS Player] Manifest loaded. Starting playback...');
+      console.log(`[HLS Player] Manifest loaded from ${getActiveEdgeUrl()}. Resume @ ${resumeTime.toFixed(1)}s`);
+      if (resumeTime > 0) {
+        videoElement.currentTime = resumeTime;
+      }
       videoElement.play().catch(e => console.log('Autoplay deferred:', e));
       updatePlayPauseIcons(false);
     });
@@ -91,7 +177,6 @@ function initHlsPlayer(streamUrl) {
       document.getElementById('hud-chunk-size').innerText = `${sizeKB} KB`;
       document.getElementById('hud-chunk-latency').innerText = `${latency} ms`;
 
-      // Visual pulse
       const latEl = document.getElementById('hud-chunk-latency');
       latEl.style.color = '#00e676';
       setTimeout(() => { latEl.style.color = ''; }, 600);
@@ -99,6 +184,10 @@ function initHlsPlayer(streamUrl) {
 
     hlsInstance.on(Hls.Events.ERROR, (event, data) => {
       console.warn('[HLS Error]', data);
+      if (data.type === Hls.ErrorTypes.NETWORK_ERROR && getConfiguredEdges().length > 1) {
+        const switched = triggerEdgeFailover('Edge Node Offline');
+        if (switched) return;
+      }
       if (data.fatal) {
         switch (data.type) {
           case Hls.ErrorTypes.NETWORK_ERROR:
@@ -117,11 +206,15 @@ function initHlsPlayer(streamUrl) {
     });
 
   } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
-    // Safari Native ABR HLS Support
+    // Native iOS Safari HLS Support + Multi-Edge Failover
     videoElement.src = streamUrl;
     videoElement.addEventListener('loadedmetadata', () => {
+      if (resumeTime > 0) videoElement.currentTime = resumeTime;
       videoElement.play();
-    });
+    }, { once: true });
+    videoElement.onerror = () => {
+      triggerEdgeFailover('Safari Stream Timeout');
+    };
   }
 }
 

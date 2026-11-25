@@ -160,7 +160,10 @@
           </div>
         </div>
 
-        <div style="display: flex; gap: 12px;">
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <button class="btn-nav-action" style="background: rgba(229, 9, 20, 0.25); border: 1px solid var(--netflix-red);" onclick="triggerEdgeFailover('Simulated Node Shutdown')" title="Switch live playback to backup laptop">
+            <span>⚡ Failover Edge</span>
+          </button>
           <button class="btn-nav-action" style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);" onclick="toggleStatsHud()" title="Toggle Stats for Nerds">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
             <span>Telemetry HUD</span>
@@ -168,11 +171,18 @@
         </div>
       </div>
 
+      <!-- Multi-Laptop Edge Failover Notification Banner -->
+      <div id="edge-failover-banner" style="display: none; position: absolute; top: 76px; left: 50%; transform: translateX(-50%); background: rgba(0, 230, 118, 0.92); color: #05130a; padding: 10px 20px; border-radius: 30px; font-weight: 800; font-size: 13px; z-index: 60; box-shadow: 0 8px 30px rgba(0, 230, 118, 0.45); white-space: nowrap;"></div>
+
       <!-- Stats for Nerds / Cloud Telemetry HUD -->
       <div class="stats-hud" id="stats-hud">
         <div class="hud-header">
           <span>⚡ CLOUD TELEMETRY (STREAM-NET)</span>
           <span style="cursor: pointer;" onclick="toggleStatsHud()">✕</span>
+        </div>
+        <div class="hud-stat-row">
+          <span>Active Cloud Host:</span>
+          <span class="hud-stat-value highlight" id="hud-edge-host">Primary Origin</span>
         </div>
         <div class="hud-stat-row">
           <span>Active Replica:</span>
@@ -301,6 +311,37 @@
           </div>
         </div>
 
+        <!-- Multi-Laptop Edge Failover & Mobile QR Connect -->
+        <div style="background: rgba(0, 229, 255, 0.06); border: 1px solid rgba(0, 229, 255, 0.3); border-radius: 12px; padding: 18px; display: flex; flex-wrap: wrap; gap: 20px; align-items: center; justify-content: space-between;">
+          <div style="flex: 1; min-width: 260px;">
+            <span class="tag-badge" style="background: rgba(0, 229, 255, 0.15); color: var(--accent-cyan);">TWO-LAPTOP HIGH AVAILABILITY</span>
+            <h3 style="font-size: 16px; font-weight: 800; margin-top: 6px; color: #fff;">📱 Mobile Multi-Laptop Edge Failover & QR Connect</h3>
+            <p style="font-size: 12px; color: #bbb; margin: 6px 0 12px 0;">
+              Enter your laptop Wi-Fi IPs below and scan the QR on mobile. If Laptop 1 shuts down mid-movie, the phone automatically fails over to Laptop 2 at the exact timestamp!
+            </p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+              <div>
+                <label style="font-size: 11px; color: #aaa; display: block; margin-bottom: 4px;">Laptop 1 (Primary Edge URL)</label>
+                <input type="text" id="edge-input-1" class="form-control" style="padding: 8px 10px; font-size: 12px;" placeholder="http://192.168.22.10">
+              </div>
+              <div>
+                <label style="font-size: 11px; color: #aaa; display: block; margin-bottom: 4px;">Laptop 2 (Backup Failover URL)</label>
+                <input type="text" id="edge-input-2" class="form-control" style="padding: 8px 10px; font-size: 12px;" placeholder="http://192.168.22.XX (Optional)">
+              </div>
+            </div>
+            <button class="btn-nav-action" style="padding: 8px 14px; font-size: 12px;" onclick="saveEdgeConfig()">
+              Update Multi-Laptop QR & Sync Failover
+            </button>
+            <div style="font-size: 11px; color: var(--accent-green); margin-top: 8px; word-break: break-all;">
+              Share URL: <a id="mobile-qr-link" href="#" target="_blank" style="color: #fff; text-decoration: underline;"></a>
+            </div>
+          </div>
+          <div style="text-align: center; background: #fff; padding: 10px; border-radius: 10px;">
+            <div id="mobile-qr-box" style="width: 128px; height: 128px; display: flex; align-items: center; justify-content: center;"></div>
+            <div style="color: #111; font-size: 10px; font-weight: 800; margin-top: 4px;">SCAN ON PHONE</div>
+          </div>
+        </div>
+
         <!-- Live Real-Time Animated Packet Flow Canvas Visualizer -->
         <div class="canvas-visualizer-container">
           <div class="canvas-toolbar">
@@ -415,24 +456,24 @@
           <div class="cli-cheatsheet">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
               <strong style="color: #fff; font-size: 13px;">🎓 Evaluator & Teacher Verification CLI Commands</strong>
-              <span class="tag-badge">Docker Compose V2</span>
+              <span class="tag-badge">Docker Swarm Cluster</span>
             </div>
-            <p style="font-size: 11px; color: #888; margin-bottom: 10px;">Run these in any terminal connected to the cluster to show live orchestration:</p>
+            <p style="font-size: 11px; color: #888; margin-bottom: 10px;">Run these in PowerShell / Terminal to show live cluster orchestration & auto-healing:</p>
             <div class="cli-cmd-line">
-              <span>docker compose up -d --scale stream-service=4</span>
-              <span style="color: #888; font-size: 11px;"># Scale streaming replicas horizontally</span>
-            </div>
-            <div class="cli-cmd-line">
-              <span>docker stop stream-service-1</span>
-              <span style="color: #888; font-size: 11px;"># Trigger instant container failover</span>
+              <span>docker node ls && docker service ls</span>
+              <span style="color: #888; font-size: 11px;"># Inspect Swarm Manager & all clustered service replicas</span>
             </div>
             <div class="cli-cmd-line">
-              <span>docker compose logs -f nginx-lb</span>
-              <span style="color: #888; font-size: 11px;"># Watch NGINX Least-Connections distribution</span>
+              <span>docker service scale netflix_stream-service=5</span>
+              <span style="color: #888; font-size: 11px;"># Scale streaming replicas dynamically on the fly</span>
             </div>
             <div class="cli-cmd-line">
-              <span>docker network inspect stream-net</span>
-              <span style="color: #888; font-size: 11px;"># Inspect 172.20.0.0/16 private subnet</span>
+              <span>docker service ps netflix_stream-service</span>
+              <span style="color: #888; font-size: 11px;"># Watch Swarm tasks & self-healing container recovery</span>
+            </div>
+            <div class="cli-cmd-line">
+              <span>docker service logs -f netflix_nginx-lb</span>
+              <span style="color: #888; font-size: 11px;"># Watch NGINX L7 live traffic & Swarm IPVS routing</span>
             </div>
           </div>
 
@@ -532,6 +573,7 @@
   </div>
 
   <!-- Client Application Logic -->
+  <script src="/js/qrcode.js"></script>
   <script src="/js/app.js"></script>
   <script src="/js/player.js"></script>
   <script src="/js/dashboard.js"></script>

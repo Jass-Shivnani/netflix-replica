@@ -3,10 +3,14 @@ const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
+const net = require('net');
+const os = require('os');
+const dns = require('dns').promises;
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const INSTANCE_ID = process.env.INSTANCE_ID || 'api-service-1';
+const INSTANCE_ID = process.env.INSTANCE_ID || ('api-' + os.hostname().slice(0, 8));
 const RAW_DIR = process.env.RAW_DIR || path.join(__dirname, '..', '..', 'media', 'raw');
 const HLS_DIR = process.env.HLS_DIR || path.join(__dirname, '..', '..', 'media', 'hls');
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data');
@@ -24,6 +28,7 @@ let totalRequests = 0;
 
 // Request metrics
 const startTime = Date.now();
+let manualDown = false;
 
 app.use(cors());
 app.use(express.json());
@@ -33,6 +38,9 @@ app.use((req, res, next) => {
   totalRequests++;
   res.setHeader('X-Served-By', INSTANCE_ID);
   res.setHeader('X-Service-Type', 'Web-API-Gateway');
+  if (manualDown && !req.path.startsWith('/internal/') && !req.path.startsWith('/api/cluster/') && req.path !== '/health' && req.path !== '/api/health') {
+    return res.status(503).json({ error: `${INSTANCE_ID} is offline (Chaos Simulation)` });
+  }
   next();
 });
 
@@ -84,10 +92,100 @@ const upload = multer({
 
 // --- ROUTES ---
 
+// Internal Chaos Toggle
+app.post('/internal/chaos-toggle', (req, res) => {
+  manualDown = !manualDown;
+  console.log(`[${INSTANCE_ID}] Chaos Toggle: manualDown = ${manualDown}`);
+  res.json({ instance: INSTANCE_ID, manualDown, healthy: !manualDown });
+});
+
+const nodeIpMap = new Map();
+
+// Helper: Probe internal Docker service over stream-net DNS
+function probeNode(host, port, type) {
+  return new Promise((resolve) => {
+    const reqStart = Date.now();
+    const req = http.get({ hostname: host, port, path: '/health', timeout: 1500 }, (res) => {
+      let body = '';
+      res.on('data', d => body += d);
+      res.on('end', () => {
+        const latency = Date.now() - reqStart;
+        try {
+          const data = JSON.parse(body);
+          const id = data.instance || host;
+          nodeIpMap.set(id, { ip: host, port });
+          resolve({
+            id,
+            ip: host,
+            port,
+            type,
+            healthy: res.statusCode === 200 && !data.manualDown,
+            manualDown: !!data.manualDown,
+            activeConnections: data.activeConnections || 0,
+            totalRequests: data.totalRequests || data.totalChunksServed || 0,
+            latency
+          });
+        } catch (e) {
+          resolve({ id: host, ip: host, port, type, healthy: res.statusCode === 200, manualDown: false, activeConnections: 0, totalRequests: 0, latency });
+        }
+      });
+    });
+    req.on('error', () => resolve({ id: host, ip: host, port, type, healthy: false, manualDown: true, activeConnections: 0, totalRequests: 0, latency: 0 }));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve({ id: host, ip: host, port, type, healthy: false, manualDown: true, activeConnections: 0, totalRequests: 0, latency: 0 });
+    });
+  });
+}
+
+// Discover all live task IPs in Swarm (`tasks.<svc>`), K8s (`<svc>-headless`), or Compose (`<svc>`)
+async function discoverAndProbePool(serviceName, legacyHosts, port, type) {
+  let ips = [];
+  for (const name of [`tasks.${serviceName}`, `${serviceName}-headless`, serviceName]) {
+    try {
+      const resolved = await dns.resolve4(name);
+      if (resolved && resolved.length > 0) {
+        ips = resolved;
+        break;
+      }
+    } catch (e) {}
+  }
+
+  const targets = ips.length > 0 ? ips : legacyHosts;
+  const results = await Promise.all(targets.map(t => probeNode(t, port, type)));
+  return results.sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function checkRedisHealth() {
+  const redisHost = process.env.REDIS_HOST || 'redis';
+  const redisPort = parseInt(process.env.REDIS_PORT || '6379', 10);
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host: redisHost, port: redisPort, timeout: 1000 }, () => {
+      socket.write('PING\r\n');
+    });
+    socket.on('data', (data) => {
+      socket.destroy();
+      resolve(data.toString().includes('PONG'));
+    });
+    socket.on('error', () => { socket.destroy(); resolve(false); });
+    socket.on('timeout', () => { socket.destroy(); resolve(false); });
+  });
+}
+
 // Health Check Endpoint (Layer 7 Load Balancer Health Probe)
 app.get(['/health', '/api/health'], (req, res) => {
+  if (manualDown) {
+    return res.status(503).json({
+      status: 'down',
+      manualDown: true,
+      service: 'api-gateway',
+      instance: INSTANCE_ID,
+      totalRequests
+    });
+  }
   res.json({
     status: 'healthy',
+    manualDown: false,
     service: 'api-gateway',
     instance: INSTANCE_ID,
     uptimeSeconds: Math.floor((Date.now() - startTime) / 1000),
@@ -95,6 +193,97 @@ app.get(['/health', '/api/health'], (req, res) => {
     cacheHitRatio: totalRequests > 0 ? ((cacheHits / (cacheHits + cacheMisses || 1)) * 100).toFixed(1) + '%' : '100%',
     timestamp: new Date().toISOString()
   });
+});
+
+// Live Docker Cluster Stats Endpoint
+app.get('/api/cluster/stats', async (req, res) => {
+  const [apiNodes, streamNodes, redisOnline] = await Promise.all([
+    discoverAndProbePool('api-service', ['api-service-1', 'api-service-2'], 5000, 'api'),
+    discoverAndProbePool('stream-service', ['stream-service-1', 'stream-service-2', 'stream-service-3'], 8080, 'stream'),
+    checkRedisHealth()
+  ]);
+
+  const allNodes = [...apiNodes, ...streamNodes];
+  const latencies = allNodes.map(n => n.latency).filter(l => l > 0);
+  const avgLatencyMs = latencies.length > 0 ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 5;
+  const aggRequests = allNodes.reduce((sum, n) => sum + (n.totalRequests || 0), 0);
+
+  const queue = getQueue();
+
+  res.json({
+    status: 'healthy',
+    mode: 'docker-swarm-cluster',
+    algorithm: 'least_conn',
+    lanIp: req.hostname || 'localhost',
+    uptimeSeconds: Math.floor((Date.now() - startTime) / 1000),
+    totalRequests: aggRequests,
+    avgLatencyMs,
+    failedRequests: 0,
+    apiNodes,
+    streamNodes,
+    transcoder: { status: 'healthy', worker: 'ffmpeg-daemon', queueLength: queue.filter(j => j.status === 'queued').length },
+    redis: { status: redisOnline ? 'active' : 'fallback', type: redisOnline ? 'redis:7.0-alpine' : 'in-memory-lru', hitRatio: '94.2%' },
+    volumes: {
+      media_data: { mounted: true, path: '/var/media', status: 'RW/RO' },
+      db_data: { mounted: true, path: '/var/lib/sqlite', status: 'RW' }
+    }
+  });
+});
+
+// Chaos Engineering Toggle (propagates across real Docker container)
+app.post('/api/cluster/toggle-node', (req, res) => {
+  const nodeId = req.query.node;
+  if (!nodeId) return res.status(400).json({ error: 'Missing node param' });
+
+  const mapped = nodeIpMap.get(nodeId);
+  const targetHost = mapped ? mapped.ip : nodeId;
+  const targetPort = mapped ? mapped.port : (nodeId.startsWith('api-') ? 5000 : 8080);
+
+  const postReq = http.request({ hostname: targetHost, port: targetPort, path: '/internal/chaos-toggle', method: 'POST', timeout: 2000 }, (postRes) => {
+    let body = '';
+    postRes.on('data', d => body += d);
+    postRes.on('end', () => {
+      try {
+        const parsed = JSON.parse(body);
+        res.json({ success: true, node: nodeId, isDown: parsed.manualDown });
+      } catch (e) {
+        res.json({ success: true, node: nodeId });
+      }
+    });
+  });
+  postReq.on('error', (err) => res.status(502).json({ error: `Failed to reach container ${nodeId}: ${err.message}` }));
+  postReq.end();
+});
+
+// Dynamic Scaling info handler (Docker Swarm CLI)
+app.post('/api/cluster/scale', (req, res) => {
+  res.status(400).json({
+    success: false,
+    message: 'Docker Swarm manages container scaling at the orchestrator level! Run in terminal:\n  docker service scale netflix_stream-service=5'
+  });
+});
+
+// Live Telemetry SSE Stream
+app.get('/api/cluster/events', async (req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*'
+  });
+  res.write('data: {"type":"connected"}\n\n');
+
+  const timer = setInterval(async () => {
+    try {
+      const streamNodes = await discoverAndProbePool('stream-service', ['stream-service-1', 'stream-service-2', 'stream-service-3'], 8080, 'stream');
+      const active = streamNodes.find(n => n.healthy && n.activeConnections > 0) || streamNodes.find(n => n.healthy);
+      if (active) {
+        res.write(`data: ${JSON.stringify({ type: 'api', method: 'PROBE', url: '/health', target: active.id, latency: active.latency || 2, timestamp: Date.now() })}\n\n`);
+      }
+    } catch (e) {}
+  }, 2500);
+
+  req.on('close', () => clearInterval(timer));
 });
 
 // Get Video Catalog (Cached via Redis / In-Memory with TTL)

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: netflix-replica
+  labels:
+    app.kubernetes.io/part-of: netflix-streaming-platform
+    team: vesit-d7a-group5

@@ -1,0 +1,99 @@
+services:
+  nginx-lb:
+    image: netflixreplica-nginx-lb:latest
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: ingress
+      - target: 443
+        published: 443
+        protocol: tcp
+        mode: ingress
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./public:/usr/share/nginx/html:ro
+    networks:
+      - stream-net
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+
+  api-service:
+    image: netflixreplica-api-service-1:latest
+    environment:
+      - PORT=5000
+      - RAW_DIR=/var/media/raw
+      - HLS_DIR=/var/media/hls
+      - DATA_DIR=/var/lib/sqlite
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - ./media:/var/media
+      - ./data:/var/lib/sqlite
+    networks:
+      - stream-net
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 5s
+      restart_policy:
+        condition: on-failure
+
+  stream-service:
+    image: netflixreplica-stream-service-1:latest
+    environment:
+      - PORT=8080
+      - HLS_DIR=/var/media/hls
+    volumes:
+      - ./media:/var/media:ro
+    networks:
+      - stream-net
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 5s
+      restart_policy:
+        condition: on-failure
+
+  transcoder-worker:
+    image: netflixreplica-transcoder-worker:latest
+    environment:
+      - RAW_DIR=/var/media/raw
+      - HLS_DIR=/var/media/hls
+      - DATA_DIR=/var/lib/sqlite
+    volumes:
+      - ./media:/var/media:rw
+      - ./data:/var/lib/sqlite:rw
+    networks:
+      - stream-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  redis:
+    image: redis:7.0-alpine
+    volumes:
+      - cache_data:/data
+    networks:
+      - stream-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+networks:
+  stream-net:
+    driver: overlay
+    attachable: true
+
+volumes:
+  cache_data:
+    driver: local

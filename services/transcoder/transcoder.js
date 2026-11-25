@@ -90,9 +90,10 @@ async function processJob(job) {
         try {
           const thumbProc = spawn('ffmpeg', [
             '-y',
-            '-ss', '00:00:01',
+            '-ss', '00:00:05',
             '-i', job.rawFilePath,
             '-vframes', '1',
+            '-update', '1',
             '-q:v', '2',
             thumbnailPath
           ]);
@@ -107,12 +108,17 @@ async function processJob(job) {
         const chunkCount = fs.readdirSync(outputDir).filter(f => f.endsWith('.ts')).length;
 
         if (movie) {
+          const totalSecs = chunkCount * 6;
+          const mins = Math.floor(totalSecs / 60);
+          const secs = totalSecs % 60;
           movie.status = 'ready';
           movie.progress = 100;
           movie.segmentCount = chunkCount;
-          movie.duration = `0:${String(chunkCount * 6).padStart(2, '0')}`;
-          movie.durationSeconds = chunkCount * 6;
+          movie.duration = `${mins}:${String(secs).padStart(2, '0')}`;
+          movie.durationSeconds = totalSecs;
           movie.resolution = '1080p Full HD';
+          movie.poster = `/stream/${job.id}/thumbnail.jpg`;
+          movie.backdrop = `/stream/${job.id}/thumbnail.jpg`;
           movie.streamUrl = `/stream/${job.id}/playlist.m3u8`;
           saveCatalog(catalog);
         }

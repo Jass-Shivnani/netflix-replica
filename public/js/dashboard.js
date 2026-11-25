@@ -21,6 +21,7 @@ let nodeCoords = {};
 
 function openTopologyModal(scrollToChaos = false) {
   document.getElementById('topology-modal').classList.add('active');
+  initEdgeConfigUi();
   fetchClusterStats();
   initTopologyCanvas();
   initEventStream();
@@ -33,6 +34,60 @@ function openTopologyModal(scrollToChaos = false) {
     setTimeout(() => {
       document.getElementById('chaos-section').scrollIntoView({ behavior: 'smooth' });
     }, 100);
+  }
+}
+
+// Multi-Laptop Edge Config & Offline QR Code
+function normalizeEdgeUrl(raw) {
+  let url = (raw || '').trim().replace(/\/+$/, '');
+  if (!url) return '';
+  if (!/^https?:\/\//i.test(url)) url = 'http://' + url;
+  return url;
+}
+
+function initEdgeConfigUi() {
+  const input1 = document.getElementById('edge-input-1');
+  const input2 = document.getElementById('edge-input-2');
+  if (!input1 || !input2) return;
+
+  const edges = typeof getConfiguredEdges === 'function' ? getConfiguredEdges() : [window.location.origin];
+  if (!input1.value) {
+    input1.value = edges[0] || window.location.origin;
+  }
+  if (!input2.value && edges[1]) {
+    input2.value = edges[1];
+  }
+  renderMobileQrCode();
+}
+
+function saveEdgeConfig() {
+  const e1 = normalizeEdgeUrl(document.getElementById('edge-input-1').value);
+  const e2 = normalizeEdgeUrl(document.getElementById('edge-input-2').value);
+  const list = [e1, e2].filter(Boolean);
+  if (list.length === 0) list.push(window.location.origin);
+
+  localStorage.setItem('netflix_edge_regions', JSON.stringify(list));
+  renderMobileQrCode();
+}
+
+function renderMobileQrCode() {
+  const e1 = normalizeEdgeUrl(document.getElementById('edge-input-1')?.value) || window.location.origin;
+  const e2 = normalizeEdgeUrl(document.getElementById('edge-input-2')?.value);
+  const edgesList = [e1, e2].filter(Boolean);
+  const shareUrl = `${e1}/?edges=${edgesList.join(',')}`;
+
+  const linkEl = document.getElementById('mobile-qr-link');
+  if (linkEl) {
+    linkEl.href = shareUrl;
+    linkEl.innerText = shareUrl;
+  }
+
+  const box = document.getElementById('mobile-qr-box');
+  if (box && typeof qrcode === 'function') {
+    const qr = qrcode(0, 'M');
+    qr.addData(shareUrl);
+    qr.make();
+    box.innerHTML = qr.createSvgTag(3, 2);
   }
 }
 
@@ -297,19 +352,34 @@ function initTopologyCanvas() {
 }
 
 function updateNodeCoordinates(w, h) {
+  // Clear previous dynamic node coords
+  nodeCoords = {};
+
   // Client & Ingress
   nodeCoords['client'] = { x: w * 0.5, y: 35, label: 'Client (HLS Player)', color: '#00e5ff' };
   nodeCoords['nginx'] = { x: w * 0.5, y: 105, label: 'NGINX LB (:80)', color: '#00e5ff' };
 
-  // API Cluster (Left side of stream-net)
-  nodeCoords['api-service-1'] = { x: w * 0.22, y: 195, label: 'api-1 (:5001)', color: '#b388ff' };
-  nodeCoords['api-service-2'] = { x: w * 0.38, y: 195, label: 'api-2 (:5002)', color: '#b388ff' };
+  // Dynamic API Cluster (Left side of stream-net)
+  const apiCount = clusterState.apiNodes.length;
+  clusterState.apiNodes.forEach((node, i) => {
+    const startX = w * 0.14;
+    const endX = w * 0.42;
+    const step = (endX - startX) / Math.max(1, apiCount - 1);
+    const x = apiCount === 1 ? (startX + endX) / 2 : startX + (i * step);
+    nodeCoords[node.id] = {
+      x,
+      y: 195,
+      label: `${node.id} (:${node.port})`,
+      color: '#b388ff',
+      down: node.manualDown || !node.healthy
+    };
+  });
 
-  // Stream Cluster (Right side of stream-net)
+  // Dynamic Stream Cluster (Right side of stream-net)
   const streamCount = clusterState.streamNodes.length;
   clusterState.streamNodes.forEach((node, i) => {
     const startX = w * 0.54;
-    const endX = w * 0.92;
+    const endX = w * 0.90;
     const step = (endX - startX) / Math.max(1, streamCount - 1);
     const x = streamCount === 1 ? (startX + endX) / 2 : startX + (i * step);
     nodeCoords[node.id] = {
@@ -322,13 +392,13 @@ function updateNodeCoordinates(w, h) {
   });
 
   // Storage & Worker Layer
-  nodeCoords['redis'] = { x: w * 0.25, y: 285, label: 'Redis 7.0 + SQLite', color: '#b388ff' };
+  nodeCoords['redis'] = { x: w * 0.25, y: 285, label: 'Redis 7.0 + Catalog', color: '#b388ff' };
   nodeCoords['transcoder'] = { x: w * 0.50, y: 285, label: 'Transcoder Worker', color: '#ffab00' };
   nodeCoords['media_data'] = { x: w * 0.78, y: 285, label: 'VOLUME: media_data', color: '#ffab00' };
 }
 
 function drawDockerNetworkBox(ctx, w, h) {
-  // Dashed border representing stream-net (172.20.0.0/16)
+  // Dashed border representing stream-net
   ctx.save();
   ctx.strokeStyle = 'rgba(0, 229, 255, 0.4)';
   ctx.lineWidth = 1.5;
@@ -338,7 +408,7 @@ function drawDockerNetworkBox(ctx, w, h) {
 
   ctx.fillStyle = 'rgba(0, 229, 255, 0.85)';
   ctx.font = '10px Inter, monospace';
-  ctx.fillText('INTERNAL DOCKER NETWORK: stream-net • 172.20.0.0/16 • DNS: 127.0.0.11', 26, 168);
+  ctx.fillText('DOCKER SWARM OVERLAY NETWORK: stream-net • DNS: 127.0.0.11 • IPVS MESH', 26, 168);
 }
 
 function drawConnectionWires(ctx) {
@@ -351,9 +421,12 @@ function drawConnectionWires(ctx) {
   drawWire(ctx, client.x, client.y + 16, nginx.x, nginx.y - 16, '#00e5ff', 1.5);
 
   // Wires: NGINX -> API nodes
-  ['api-service-1', 'api-service-2'].forEach(id => {
-    const target = nodeCoords[id];
-    if (target) drawWire(ctx, nginx.x - 30, nginx.y + 16, target.x, target.y - 16, '#b388ff', 1);
+  clusterState.apiNodes.forEach(node => {
+    const target = nodeCoords[node.id];
+    if (target) {
+      const color = target.down ? '#ff5252' : '#b388ff';
+      drawWire(ctx, nginx.x - 30, nginx.y + 16, target.x, target.y - 16, color, 1, target.down);
+    }
   });
 
   // Wires: NGINX -> Stream nodes

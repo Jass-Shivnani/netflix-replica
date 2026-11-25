@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transcoder-worker
+  namespace: netflix-replica
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: transcoder-worker
+  template:
+    metadata:
+      labels:
+        app: transcoder-worker
+    spec:
+      containers:
+        - name: transcoder
+          image: netflixreplica-transcoder-worker:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: RAW_DIR
+              value: "/var/media/raw"
+            - name: HLS_DIR
+              value: "/var/media/hls"
+            - name: DATA_DIR
+              value: "/var/lib/sqlite"
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "2000m"
+              memory: "1Gi"
+          volumeMounts:
+            - name: media-storage
+              mountPath: /var/media
+            - name: data-storage
+              mountPath: /var/lib/sqlite
+      volumes:
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: media-pvc
+        - name: data-storage
+          persistentVolumeClaim:
+            claimName: data-pvc
