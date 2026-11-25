@@ -6,13 +6,13 @@
   <title>NETFLIX | ACC Cloud Stream - Distributed HLS Platform</title>
   <meta name="description" content="Containerized, Horizontally Scalable Video Streaming Platform with NGINX Layer 7 Load Balancing, FFmpeg Transcoder, and HLS Adaptive Delivery.">
 
-  <!-- Google Fonts: Bebas Neue for Netflix Brand & Inter for UI -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- Non-blocking Font Fallback (Zero render delay on local hotspots) -->
+  <style>
+    @font-face { font-family: 'Bebas Neue'; font-display: swap; src: local('Impact'), local('Arial Narrow Bold'); }
+  </style>
 
-  <!-- HLS.js Library for HTTP Live Streaming playback -->
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <!-- Local HLS.js Library (Zero Internet Latency) -->
+  <script src="/js/hls.min.js"></script>
 
   <link rel="stylesheet" href="/css/style.css">
 </head>
