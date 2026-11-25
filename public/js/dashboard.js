@@ -58,9 +58,10 @@ function initEdgeConfigUi() {
     input2.value = edges[1];
   }
   renderMobileQrCode();
+  verifyEdgeConnectivity(edges);
 }
 
-function saveEdgeConfig() {
+async function saveEdgeConfig() {
   const e1 = normalizeEdgeUrl(document.getElementById('edge-input-1').value);
   const e2 = normalizeEdgeUrl(document.getElementById('edge-input-2').value);
   const list = [e1, e2].filter(Boolean);
@@ -68,6 +69,38 @@ function saveEdgeConfig() {
 
   localStorage.setItem('netflix_edge_regions', JSON.stringify(list));
   renderMobileQrCode();
+  await verifyEdgeConnectivity(list);
+}
+
+async function verifyEdgeConnectivity(edgesList) {
+  const statusEl = document.getElementById('edge-health-status');
+  if (!statusEl) return;
+
+  if (edgesList.length < 2) {
+    statusEl.style.color = '#ffab00';
+    statusEl.innerText = '⚠ Only 1 laptop entered. Enter Laptop 2 IP above to arm Multi-Laptop Failover.';
+    return;
+  }
+
+  statusEl.style.color = '#00e5ff';
+  statusEl.innerText = `Checking connectivity to ${edgesList[1]}...`;
+
+  try {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(`${edgesList[1]}/api/videos`, { signal: controller.signal });
+    clearTimeout(t);
+    if (res.ok) {
+      statusEl.style.color = '#00e676';
+      statusEl.innerText = `✅ Connected to BOTH laptops (${edgesList[0]} & ${edgesList[1]}) — Zero-Downtime Failover ARMED!`;
+    } else {
+      statusEl.style.color = '#ff5252';
+      statusEl.innerText = `❌ Laptop 2 (${edgesList[1]}) returned HTTP ${res.status}.`;
+    }
+  } catch (err) {
+    statusEl.style.color = '#ff5252';
+    statusEl.innerText = `❌ Cannot reach Laptop 2 (${edgesList[1]}): Make sure Docker is running on Laptop 2 & Windows Firewall Port 80 is allowed!`;
+  }
 }
 
 function renderMobileQrCode() {

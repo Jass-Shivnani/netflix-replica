@@ -4,6 +4,8 @@ let chunksLoadedCount = 0;
 let activeEdgeIndex = 0;
 let edgeFailoverInProgress = false;
 let failoverBannerTimer = null;
+let edgeHeartbeatTimer = null;
+let edgeFailureStreak = 0;
 
 // Multi-Laptop / Multi-Edge URL Discovery (?edges=http://ip1,http://ip2 or localStorage)
 function getConfiguredEdges() {
@@ -52,6 +54,42 @@ const btnPlayPause = document.getElementById('btn-play-pause');
 const iconPlay = document.getElementById('icon-play');
 const iconPause = document.getElementById('icon-pause');
 
+// Start 1.5-second Active Heartbeat Watcher so turning off Docker switches laptops BEFORE buffer runs out!
+function startEdgeHeartbeat() {
+  stopEdgeHeartbeat();
+  edgeFailureStreak = 0;
+
+  edgeHeartbeatTimer = setInterval(async () => {
+    const edges = getConfiguredEdges();
+    if (edges.length <= 1 || !currentVideoId || edgeFailoverInProgress) return;
+
+    const currentEdge = getActiveEdgeUrl();
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 1400);
+      const res = await fetch(`${currentEdge}/api/health?t=${Date.now()}`, { signal: controller.signal, cache: 'no-store' });
+      clearTimeout(timeout);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      edgeFailureStreak = 0;
+    } catch (err) {
+      edgeFailureStreak++;
+      console.warn(`[Heartbeat] ${currentEdge} unreachable (${edgeFailureStreak}):`, err.message);
+      if (edgeFailureStreak >= 1) {
+        edgeFailureStreak = 0;
+        triggerEdgeFailover('Laptop Offline Detected');
+      }
+    }
+  }, 1500);
+}
+
+function stopEdgeHeartbeat() {
+  if (edgeHeartbeatTimer) {
+    clearInterval(edgeHeartbeatTimer);
+    edgeHeartbeatTimer = null;
+  }
+  edgeFailureStreak = 0;
+}
+
 // Launch Player with specified Video ID
 function playMovie(id) {
   currentVideoId = id;
@@ -68,6 +106,7 @@ function playMovie(id) {
   const streamUrl = `${edgeBase}/stream/${id}/playlist.m3u8`;
   updateEdgeHudLabel(edgeBase);
   initHlsPlayer(streamUrl, 0);
+  startEdgeHeartbeat();
 }
 
 function updateEdgeHudLabel(edgeBase) {
@@ -81,6 +120,7 @@ function updateEdgeHudLabel(edgeBase) {
 
 // Close Cinema Player
 function closePlayer() {
+  stopEdgeHeartbeat();
   if (hlsInstance) {
     hlsInstance.destroy();
     hlsInstance = null;
@@ -95,7 +135,7 @@ function closePlayer() {
 }
 
 // Failover to Backup Laptop / Edge Region seamlessly at exact timestamp
-function triggerEdgeFailover(reason = 'Primary Edge Timeout') {
+async function triggerEdgeFailover(reason = 'Primary Edge Timeout') {
   const edges = getConfiguredEdges();
   if (edges.length <= 1) {
     showFailoverBanner('Add a 2nd Laptop IP in Topology -> Mobile QR Connect to enable Multi-Laptop Failover!', true);
@@ -105,7 +145,23 @@ function triggerEdgeFailover(reason = 'Primary Edge Timeout') {
   edgeFailoverInProgress = true;
 
   const oldEdge = edges[activeEdgeIndex % edges.length];
-  activeEdgeIndex = (activeEdgeIndex + 1) % edges.length;
+  let nextIdx = (activeEdgeIndex + 1) % edges.length;
+
+  // Pick the first healthy backup laptop if > 2 edges configured
+  for (let offset = 1; offset < edges.length; offset++) {
+    const candidateIdx = (activeEdgeIndex + offset) % edges.length;
+    try {
+      const c = new AbortController();
+      setTimeout(() => c.abort(), 1500);
+      const r = await fetch(`${edges[candidateIdx]}/api/health?t=${Date.now()}`, { signal: c.signal, cache: 'no-store' });
+      if (r.ok) {
+        nextIdx = candidateIdx;
+        break;
+      }
+    } catch (e) {}
+  }
+
+  activeEdgeIndex = nextIdx;
   const newEdge = edges[activeEdgeIndex];
   const resumeAt = Math.max(0, videoElement.currentTime || 0);
 
@@ -116,11 +172,11 @@ function triggerEdgeFailover(reason = 'Primary Edge Timeout') {
   const newUrl = `${newEdge}/stream/${currentVideoId}/playlist.m3u8`;
   initHlsPlayer(newUrl, resumeAt);
 
-  setTimeout(() => { edgeFailoverInProgress = false; }, 2000);
+  setTimeout(() => { edgeFailoverInProgress = false; }, 2500);
   return true;
 }
 
-// Initialize HLS.js with telemetry & fast multi-laptop failover
+// Initialize HLS.js (v1.7+) with fast loadPolicy + multi-laptop failover
 function initHlsPlayer(streamUrl, resumeTime = 0) {
   if (hlsInstance) {
     hlsInstance.destroy();
@@ -131,17 +187,25 @@ function initHlsPlayer(streamUrl, resumeTime = 0) {
     document.getElementById('hud-chunks-loaded').innerText = '0';
   }
 
+  const fastPolicy = {
+    default: {
+      maxTimeToFirstByteMs: 2500,
+      maxLoadTimeMs: 4500,
+      timeoutRetry: { maxNumRetry: 0, retryDelayMs: 300, maxRetryDelayMs: 1000 },
+      errorRetry: { maxNumRetry: 0, retryDelayMs: 300, maxRetryDelayMs: 1000 }
+    }
+  };
+
   if (Hls.isSupported()) {
     hlsInstance = new Hls({
       enableWorker: true,
       lowLatencyMode: false,
       startPosition: resumeTime > 0 ? resumeTime : -1,
-      maxBufferLength: 30,
-      maxMaxBufferLength: 60,
-      manifestLoadingTimeOut: 3000,
-      manifestLoadingMaxRetry: 0,
-      fragLoadingTimeOut: 3500,
-      fragLoadingMaxRetry: 1,
+      maxBufferLength: 18,
+      maxMaxBufferLength: 30,
+      manifestLoadPolicy: fastPolicy,
+      playlistLoadPolicy: fastPolicy,
+      fragLoadPolicy: fastPolicy,
       xhrSetup: (xhr, url) => {
         xhr.addEventListener('load', () => {
           const replica = xhr.getResponseHeader('x-served-by');
@@ -185,8 +249,8 @@ function initHlsPlayer(streamUrl, resumeTime = 0) {
     hlsInstance.on(Hls.Events.ERROR, (event, data) => {
       console.warn('[HLS Error]', data);
       if (data.type === Hls.ErrorTypes.NETWORK_ERROR && getConfiguredEdges().length > 1) {
-        const switched = triggerEdgeFailover('Edge Node Offline');
-        if (switched) return;
+        triggerEdgeFailover('Chunk Network Failover');
+        return;
       }
       if (data.fatal) {
         switch (data.type) {
